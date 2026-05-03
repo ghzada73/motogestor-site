@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Controle Financeiro Motoboy</title>
+  <style>
+    body{font-family:Arial;background:#f4f4f4;margin:0;padding:15px}
+    h1{text-align:center}
+    .card{background:#fff;padding:15px;border-radius:10px;margin-bottom:10px}
+    input,select{width:100%;padding:10px;margin:5px 0}
+    button{width:100%;padding:10px;margin-top:10px;border:none;border-radius:8px;cursor:pointer}
+    .add{background:green;color:#fff}
+    .clear{background:red;color:#fff}
+    .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .box{background:#e9ffe9;padding:10px;border-radius:8px}
+    .expense{background:#ffe9e9}
+    ul{padding:0;list-style:none}
+    li{background:#fff;margin:5px 0;padding:10px;border-radius:8px}
+  </style>
+</head>
+<body><h1>📊 Controle Motoboy</h1><div class="card">
+  <input type="number" id="value" placeholder="Valor (R$)" />
+  <input type="number" id="trips" placeholder="Viagens (opcional)" />
+  <select id="type">
+    <option value="income">💰 Ganho</option>
+    <option value="gasolina">⛽ Gasolina</option>
+    <option value="manutencao">🔧 Manutenção</option>
+    <option value="comida">🍔 Alimentação</option>
+    <option value="aluguel_moto">🏍 Aluguel moto</option>
+    <option value="aluguel_casa">🏠 Aluguel casa</option>
+    <option value="internet">🌐 Internet</option>
+    <option value="cartao">💳 Cartão</option>
+    <option value="outros">📦 Outros</option>
+  </select>
+  <button class="add" onclick="addData()">Adicionar</button>
+  <button class="clear" onclick="clearData()">Limpar Tudo</button>
+</div><div class="card summary">
+  <div class="box">💰 Ganhos: <span id="income">0</span></div>
+  <div class="box expense">💸 Gastos: <span id="expense">0</span></div>
+  <div class="box">📊 Lucro: <span id="profit">0</span></div>
+  <div class="box">🏍 Viagens: <span id="tripsTotal">0</span></div>
+</div><div class="card">
+  <h3>📅 Histórico</h3>
+  <ul id="list"></ul>
+</div><script>
+let data = JSON.parse(localStorage.getItem('motoboy')) || [];
+
+function save(){
+  localStorage.setItem('motoboy', JSON.stringify(data));
+}
+
+function addData(){
+  let value = Number(document.getElementById('value').value);
+  let type = document.getElementById('type').value;
+  let trips = Number(document.getElementById('trips').value) || 0;
+
+  if(!value) return;
+
+  data.push({
+    value,
+    type,
+    trips,
+    date: new Date().toLocaleDateString()
+  });
+
+  save();
+  render();
+}
+
+function clearData(){
+  if(confirm('Apagar tudo?')){
+    data = [];
+    save();
+    render();
+  }
+}
+
+function render(){
+  let income = 0;
+  let expense = 0;
+  let trips = 0;
+
+  let list = document.getElementById('list');
+  list.innerHTML = '';
+
+  data.forEach(item => {
+    if(item.type === 'income') income += item.value;
+    else expense += item.value;
+
+    trips += item.trips;
+
+    let li = document.createElement('li');
+    li.innerHTML = `${item.date} - ${item.type} - R$ ${item.value} - 🚗 ${item.trips}`;
+    list.appendChild(li);
+  });
+
+  document.getElementById('income').innerText = income.toFixed(2);
+  document.getElementById('expense').innerText = expense.toFixed(2);
+  document.getElementById('profit').innerText = (income - expense).toFixed(2);
+  document.getElementById('tripsTotal').innerText = trips;
+}
+
+render();
+</script></body>
+</html>
