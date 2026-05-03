@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MotoGestor Pro</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #000;
+      color: white;
+      padding: 20px;
+    }
+    h1 {
+      color: #00ff88;
+    }
+    .card {
+      background: #111;
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 15px;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border-radius: 10px;
+      border: none;
+    }
+    input {
+      background: #222;
+      color: white;
+    }
+    button {
+      background: #00ff88;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<h1>MotoGestor Pro</h1>
+<p>Sua correria, seu lucro, seu controle.</p>
+
+<div class="card">
+  <h2>Ganhos do Dia</h2>
+  <input type="number" id="ganho" placeholder="Digite seu ganho">
+  <button onclick="adicionarGanho()">Adicionar Ganho</button>
+  <p>Total: R$ <span id="totalGanhos">0</span></p>
+</div>
+
+<div class="card">
+  <h2>Gastos do Dia</h2>
+  <input type="number" id="gasto" placeholder="Digite seu gasto">
+  <button onclick="adicionarGasto()">Adicionar Gasto</button>
+  <p>Total: R$ <span id="totalGastos">0</span></p>
+</div>
+
+<div class="card">
+  <h2>Lucro Líquido</h2>
+  <p>R$ <span id="lucro">0</span></p>
+</div>
+
+<script>
+  let ganhos = 0;
+  let gastos = 0;
+
+  function adicionarGanho() {
+    const valor = Number(document.getElementById('ganho').value);
+    ganhos += valor;
+    atualizar();
+  }
+
+  function adicionarGasto() {
+    const valor = Number(document.getElementById('gasto').value);
+    gastos += valor;
+    atualizar();
+  }
+
+  function atualizar() {
+    document.getElementById('totalGanhos').innerText = ganhos;
+    document.getElementById('totalGastos').innerText = gastos;
+    document.getElementById('lucro').innerText = ganhos - gastos;
+  }
+</script>
+
+</body>
+</html>
