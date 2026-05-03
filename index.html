@@ -1,0 +1,143 @@
+<!DOCTYPE html><html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Financeiro Pro Motoboy</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body{font-family:Arial;background:#f4f4f4;margin:0;padding:15px}
+    h1{text-align:center}
+    .card{background:#fff;padding:15px;border-radius:12px;margin-bottom:12px}
+    input,select{width:100%;padding:10px;margin:5px 0}
+    button{width:100%;padding:10px;margin-top:8px;border:none;border-radius:8px;cursor:pointer}
+    .add{background:green;color:#fff}
+    .clear{background:red;color:#fff}
+    .danger{color:red;font-weight:bold}
+    .ok{color:green;font-weight:bold}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .box{background:#eef;padding:10px;border-radius:8px}
+    ul{padding:0;list-style:none}
+    li{background:#fff;margin:5px 0;padding:10px;border-radius:8px}
+    canvas{background:#fff;border-radius:10px;padding:10px}
+  </style>
+</head>
+<body><h1>📊 Financeiro Pro Motoboy</h1><div class="card">
+  <input type="number" id="value" placeholder="Valor R$" />
+  <input type="number" id="hours" placeholder="Horas trabalhadas" />
+  <input type="number" id="km" placeholder="Km rodados" />
+  <select id="type">
+    <option value="income">💰 Ganho</option>
+    <option value="gasolina">⛽ Gasolina</option>
+    <option value="manutencao">🔧 Manutenção</option>
+    <option value="comida">🍔 Comida</option>
+    <option value="aluguel">🏍 Aluguel moto</option>
+    <option value="casa">🏠 Casa</option>
+    <option value="cartao">💳 Cartão</option>
+    <option value="emprestimo">🏦 Empréstimo</option>
+    <option value="outros">📦 Outros</option>
+  </select>
+  <button class="add" onclick="add()">Adicionar</button>
+</div><div class="card grid">
+  <div class="box">💰 Ganhos: <span id="income">0</span></div>
+  <div class="box">💸 Gastos: <span id="expense">0</span></div>
+  <div class="box" id="profitBox">📊 Lucro: <span id="profit">0</span></div>
+  <div class="box">⏱ Hora R$: <span id="hourly">0</span></div>
+  <div class="box">📍 Km R$: <span id="kmrate">0</span></div>
+  <div class="box">📅 Meta diária: <span id="goal">0</span></div>
+</div><div class="card">
+  <h3>📈 Gráfico de lucro</h3>
+  <canvas id="chart"></canvas>
+</div><div class="card">
+  <h3>📅 Histórico</h3>
+  <ul id="list"></ul>
+</div><script>
+let data = JSON.parse(localStorage.getItem('data')) || [];
+
+function save(){
+  localStorage.setItem('data', JSON.stringify(data));
+}
+
+function add(){
+  let value = Number(document.getElementById('value').value);
+  let type = document.getElementById('type').value;
+  let hours = Number(document.getElementById('hours').value) || 0;
+  let km = Number(document.getElementById('km').value) || 0;
+
+  if(!value) return;
+
+  data.push({
+    value,type,hours,km,date:new Date().toLocaleDateString()
+  });
+
+  save();
+  render();
+}
+
+function render(){
+  let income=0,expense=0,hours=0,km=0;
+
+  let list=document.getElementById('list');
+  list.innerHTML='';
+
+  data.forEach(d=>{
+    if(d.type==='income') income+=d.value;
+    else expense+=d.value;
+
+    hours+=d.hours;
+    km+=d.km;
+
+    let li=document.createElement('li');
+    li.innerHTML=`${d.date} | ${d.type} | R$${d.value} | ⏱${d.hours}h | 📍${d.km}km`;
+    list.appendChild(li);
+  });
+
+  let profit=income-expense;
+  let hourly=hours?profit/hours:0;
+  let kmrate=km?profit/km:0;
+
+  let monthlyGoal=expense;
+  let dailyGoal=monthlyGoal/30;
+
+  document.getElementById('income').innerText=income.toFixed(2);
+  document.getElementById('expense').innerText=expense.toFixed(2);
+  document.getElementById('profit').innerText=profit.toFixed(2);
+  document.getElementById('hourly').innerText=hourly.toFixed(2);
+  document.getElementById('kmrate').innerText=kmrate.toFixed(2);
+  document.getElementById('goal').innerText=dailyGoal.toFixed(2);
+
+  document.getElementById('profitBox').className = profit<0?'box danger':'box ok';
+
+  updateChart();
+}
+
+let chart;
+function updateChart(){
+  let labels=[];
+  let profits=[];
+
+  let sum=0;
+  data.forEach(d=>{
+    sum += d.type==='income'?d.value:-d.value;
+    labels.push(d.date);
+    profits.push(sum);
+  });
+
+  if(chart) chart.destroy();
+
+  chart=new Chart(document.getElementById('chart'),{
+    type:'line',
+    data:{
+      labels:labels,
+      datasets:[{
+        label:'Lucro acumulado',
+        data:profits,
+        borderColor:'green',
+        fill:false
+      }]
+    }
+  });
+}
+
+render();
+</script></body>
+</html>
