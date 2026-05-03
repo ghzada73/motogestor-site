@@ -1,0 +1,157 @@
+import { useState } from 'react';
+
+export default function MotoGestorPro() {
+  const [ganhos, setGanhos] = useState([]);
+  const [despesas, setDespesas] = useState([]);
+  const [contas, setContas] = useState([
+    { nome: 'Aluguel', valor: 950 },
+    { nome: 'Internet', valor: 100 },
+    { nome: 'Energia', valor: 150 },
+  ]);
+
+  const [novoGanho, setNovoGanho] = useState('');
+  const [novoGasto, setNovoGasto] = useState('');
+  const [novaContaNome, setNovaContaNome] = useState('');
+  const [novaContaValor, setNovaContaValor] = useState('');
+
+  const totalGanhos = ganhos.reduce((acc, item) => acc + item.valor, 0);
+  const totalDespesas = despesas.reduce((acc, item) => acc + item.valor, 0);
+  const totalContas = contas.reduce((acc, item) => acc + item.valor, 0);
+  const lucro = totalGanhos - totalDespesas;
+  const sobraFinal = lucro - totalContas;
+  const meta = 300;
+  const progresso = Math.min((totalGanhos / meta) * 100, 100);
+
+  const adicionarGanho = () => {
+    if (!novoGanho) return;
+    setGanhos([...ganhos, { valor: Number(novoGanho), data: new Date().toLocaleDateString() }]);
+    setNovoGanho('');
+  };
+
+  const adicionarGasto = () => {
+    if (!novoGasto) return;
+    setDespesas([...despesas, { valor: Number(novoGasto), data: new Date().toLocaleDateString() }]);
+    setNovoGasto('');
+  };
+
+  const adicionarConta = () => {
+    if (!novaContaNome || !novaContaValor) return;
+    setContas([...contas, { nome: novaContaNome, valor: Number(novaContaValor) }]);
+    setNovaContaNome('');
+    setNovaContaValor('');
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white max-w-md mx-auto p-4 pb-28">
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-green-400">MotoGestor Pro</h1>
+        <p className="text-gray-400">Controle total da sua correria.</p>
+      </header>
+
+      <section className="bg-zinc-900 rounded-3xl p-4 mb-4 shadow-lg">
+        <div className="flex justify-between mb-2">
+          <span>Meta do dia</span>
+          <span className="text-green-400 font-bold">R$ {meta}</span>
+        </div>
+        <div className="w-full h-3 bg-zinc-800 rounded-full">
+          <div className="h-3 bg-green-400 rounded-full" style={{ width: `${progresso}%` }} />
+        </div>
+        <p className="text-sm text-gray-400 mt-2">{progresso.toFixed(0)}% concluído</p>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 mb-4">
+        <Card title="Ganhos" value={totalGanhos} color="text-cyan-400" bg="bg-cyan-950" />
+        <Card title="Gastos" value={totalDespesas} color="text-red-400" bg="bg-red-950" />
+        <Card title="Lucro" value={lucro} color="text-green-400" bg="bg-green-950" wide />
+        <Card title="Sobra Final" value={sobraFinal} color="text-yellow-400" bg="bg-yellow-950" wide />
+      </section>
+
+      <section className="bg-zinc-900 rounded-3xl p-4 mb-4">
+        <h2 className="text-xl font-semibold mb-3">Adicionar Ganho</h2>
+        <div className="flex gap-2">
+          <input value={novoGanho} onChange={(e) => setNovoGanho(e.target.value)} type="number" placeholder="Valor" className="flex-1 bg-zinc-800 rounded-2xl p-3" />
+          <button onClick={adicionarGanho} className="bg-cyan-500 rounded-2xl px-4">+</button>
+        </div>
+
+        <h2 className="text-xl font-semibold mt-5 mb-3">Adicionar Gasto</h2>
+        <div className="flex gap-2">
+          <input value={novoGasto} onChange={(e) => setNovoGasto(e.target.value)} type="number" placeholder="Valor" className="flex-1 bg-zinc-800 rounded-2xl p-3" />
+          <button onClick={adicionarGasto} className="bg-red-500 rounded-2xl px-4">+</button>
+        </div>
+      </section>
+
+      <section className="bg-zinc-900 rounded-3xl p-4 mb-4">
+        <h2 className="text-xl font-semibold mb-3">Contas Pessoais</h2>
+        <div className="space-y-2 mb-4">
+          {contas.map((conta, i) => (
+            <div key={i} className="flex justify-between border-b border-zinc-800 pb-2">
+              <span>{conta.nome}</span>
+              <span className="text-red-400">R$ {conta.valor}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <input value={novaContaNome} onChange={(e) => setNovaContaNome(e.target.value)} placeholder="Nome da conta" className="w-full bg-zinc-800 rounded-2xl p-3" />
+          <div className="flex gap-2">
+            <input value={novaContaValor} onChange={(e) => setNovaContaValor(e.target.value)} type="number" placeholder="Valor" className="flex-1 bg-zinc-800 rounded-2xl p-3" />
+            <button onClick={adicionarConta} className="bg-yellow-500 rounded-2xl px-4">+</button>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-zinc-900 rounded-3xl p-4 mb-4">
+        <h2 className="text-xl font-semibold mb-3">Histórico</h2>
+        <div className="space-y-2 text-sm max-h-40 overflow-y-auto">
+          {ganhos.map((g, i) => (
+            <div key={`g-${i}`} className="flex justify-between text-cyan-400">
+              <span>Ganho ({g.data})</span>
+              <span>+ R$ {g.valor}</span>
+            </div>
+          ))}
+          {despesas.map((d, i) => (
+            <div key={`d-${i}`} className="flex justify-between text-red-400">
+              <span>Gasto ({d.data})</span>
+              <span>- R$ {d.valor}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-zinc-900 rounded-3xl p-4">
+        <h2 className="text-xl font-semibold mb-3">Resumo Mensal</h2>
+        <Resumo label="Ganhos totais" value={totalGanhos} color="text-cyan-400" />
+        <Resumo label="Gastos totais" value={totalDespesas} color="text-red-400" />
+        <Resumo label="Contas pessoais" value={totalContas} color="text-orange-400" />
+        <Resumo label="Saldo final" value={sobraFinal} color="text-green-400" />
+      </section>
+
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-zinc-950 border-t border-zinc-800">
+        <div className="flex justify-around p-4 text-sm">
+          <button className="text-green-400">Dashboard</button>
+          <button>Histórico</button>
+          <button>Contas</button>
+          <button>Perfil</button>
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+function Card({ title, value, color, bg, wide = false }) {
+  return (
+    <div className={`${bg} rounded-3xl p-4 ${wide ? 'col-span-2' : ''}`}>
+      <p className="text-gray-300">{title}</p>
+      <h2 className={`text-2xl font-bold ${color}`}>R$ {value}</h2>
+    </div>
+  );
+}
+
+function Resumo({ label, value, color }) {
+  return (
+    <div className="flex justify-between mb-2">
+      <span>{label}</span>
+      <span className={color}>R$ {value}</span>
+    </div>
+  );
+}
