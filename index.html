@@ -1,0 +1,197 @@
+<!DOCTYPE html><html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MotoFinance Ultra</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial;background:#0b1020;color:#fff;padding:15px;padding-bottom:100px}
+    .header,.row{display:flex;justify-content:space-between;align-items:center}
+    .period-selector{display:flex;gap:8px;margin:15px 0}
+    .period-selector button,.tab-btn{flex:1;padding:10px;border:none;border-radius:12px;background:#1a2238;color:#fff;cursor:pointer}
+    .active{background:#22c55e !important}
+    .card{background:#121a2f;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 0 12px rgba(0,0,0,.25)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .blue{color:#22d3ee}.red{color:#ff4d6d}.green{color:#22c55e}.muted{color:#94a3b8;font-size:13px}
+    input,select{width:100%;padding:12px;margin-top:8px;border:none;border-radius:10px;background:#1a2238;color:#fff}
+    button.primary{width:100%;padding:14px;margin-top:10px;border:none;border-radius:12px;background:#22c55e;color:white;font-weight:bold;cursor:pointer}
+    ul{list-style:none;padding:0;margin:0}
+    li{background:#1a2238;margin-top:8px;padding:12px;border-radius:12px}
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#111827;display:flex;justify-content:space-around;padding:12px;border-top:1px solid #222}
+    .nav-item{color:#94a3b8;font-size:12px;text-align:center}.nav-item.active{color:#22c55e}
+    canvas{margin-top:10px;background:#0f172a;border-radius:14px;padding:10px}
+    .edit-btn{background:none;border:none;color:#22d3ee;font-size:18px;cursor:pointer}
+  </style>
+</head>
+<body><div class="header">
+  <h1>📊 MotoFinance Ultra</h1>
+  <div>📅 <span id="currentMonth"></span></div>
+</div><div class="period-selector">
+  <button onclick="setFilter('day', event)">Hoje</button>
+  <button class="active" onclick="setFilter('week', event)">7 dias</button>
+  <button onclick="setFilter('month', event)">30 dias</button>
+</div><div class="grid">
+  <div class="card"><div class="muted">Ganhos</div><h2 class="blue">R$ <span id="income">0.00</span></h2></div>
+  <div class="card"><div class="muted">Despesas</div><h2 class="red">R$ <span id="expense">0.00</span></h2></div>
+  <div class="card"><div class="muted">Lucro Líquido</div><h2 class="green">R$ <span id="profit">0.00</span></h2></div>
+  <div class="card"><div class="muted">Entregas</div><h2><span id="deliveries">0</span></h2><div class="muted">Meta diária: R$ <span id="goal">0</span></div></div>
+</div><div class="card">
+  <h3>🏠 Contas Fixas Mensais</h3>
+  <div id="fixedBills"></div>
+</div><div class="card">
+  <h3>➕ Novo Registro</h3>
+  <input id="value" type="number" placeholder="Valor R$">
+  <input id="hours" type="number" placeholder="Horas trabalhadas">
+  <input id="km" type="number" placeholder="Km rodados">
+  <input id="deliveriesInput" type="number" placeholder="Entregas">
+  <select id="type"><option value="income">💰 Ganho</option><option value="expense">💸 Gasto</option></select>
+  <select id="category">
+    <option value="gasolina">⛽ Gasolina</option>
+    <option value="manutencao">🔧 Manutenção</option>
+    <option value="comida">🍔 Alimentação</option>
+    <option value="casa">🏠 Casa</option>
+    <option value="cartao">💳 Cartão</option>
+    <option value="emprestimo">🏦 Empréstimo</option>
+    <option value="outros">📦 Outros</option>
+  </select>
+  <button class="primary" onclick="addEntry()">Salvar Registro</button>
+</div><div class="card">
+  <h3>📅 Jornada de Trabalho</h3>
+  <div class="row"><span>Folga hoje?</span><input type="checkbox" id="dayOff" style="width:auto"></div>
+  <button class="primary" onclick="saveWorkDay()">Salvar Jornada</button>
+</div><div class="card"><h3>📈 Evolução Financeira</h3><canvas id="financeChart"></canvas></div>
+<div class="card"><h3>💸 Gastos por Categoria</h3><canvas id="expenseChart"></canvas></div>
+<div class="card"><h3>📅 Histórico</h3><ul id="history"></ul></div><div class="bottom-nav">
+  <div class="nav-item active">🏠<br>Início</div>
+  <div class="nav-item">💳<br>Contas</div>
+  <div class="nav-item">📊<br>Relatórios</div>
+  <div class="nav-item">⚙️<br>Config</div>
+</div><script>
+let entries = JSON.parse(localStorage.getItem('moto_finance')) || [];
+let fixedBills = JSON.parse(localStorage.getItem('fixed_bills')) || {
+ agua:0, energia:0, internet:0, aluguel:0, mercado:0, cartao:0, emprestimo:0
+};
+let workDays = JSON.parse(localStorage.getItem('work_days')) || [];
+let filter='week';
+let financeChart, expenseChart;
+
+document.getElementById('currentMonth').innerText = new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+
+function saveAll(){
+ localStorage.setItem('moto_finance',JSON.stringify(entries));
+ localStorage.setItem('fixed_bills',JSON.stringify(fixedBills));
+ localStorage.setItem('work_days',JSON.stringify(workDays));
+}
+
+function addEntry(){
+ const value=Number(document.getElementById('value').value);
+ if(!value)return;
+ entries.push({
+  value,
+  hours:Number(hours.value)||0,
+  km:Number(km.value)||0,
+  deliveries:Number(deliveriesInput.value)||0,
+  type:type.value,
+  category:category.value,
+  date:new Date().toISOString().split('T')[0]
+ });
+ saveAll(); render();
+}
+
+function saveWorkDay(){
+ workDays.push({date:new Date().toISOString().split('T')[0], dayOff:dayOff.checked});
+ saveAll();
+}
+
+function setFilter(period,event){
+ filter=period;
+ document.querySelectorAll('.period-selector button').forEach(btn=>btn.classList.remove('active'));
+ event.target.classList.add('active');
+ render();
+}
+
+function getFiltered(){
+ if(filter==='day') return entries.slice(-1);
+ if(filter==='week') return entries.slice(-7);
+ if(filter==='month') return entries.slice(-30);
+ return entries;
+}
+
+function renderBills(){
+ const container=document.getElementById('fixedBills');
+ container.innerHTML='';
+ for(let bill in fixedBills){
+   const div=document.createElement('div');
+   div.className='row';
+   div.innerHTML=`<span>${bill.toUpperCase()}: R$ ${fixedBills[bill].toFixed(2)}</span><button class='edit-btn' onclick="editBill('${bill}')">✏️</button>`;
+   container.appendChild(div);
+ }
+}
+
+function editBill(name){
+ const newValue=prompt(`Novo valor para ${name}:`, fixedBills[name]);
+ if(newValue!==null){
+   fixedBills[name]=Number(newValue)||0;
+   saveAll(); render();
+ }
+}
+
+function render(){
+ const data=getFiltered();
+ let income=0,expense=0,deliveries=0;
+ let categoryTotals={};
+ history.innerHTML='';
+
+ data.forEach(item=>{
+   if(item.type==='income') income+=item.value;
+   else {
+     expense+=item.value;
+     categoryTotals[item.category]=(categoryTotals[item.category]||0)+item.value;
+   }
+   deliveries+=item.deliveries;
+
+   const li=document.createElement('li');
+   li.innerHTML=`${item.date} | ${item.category} | ${item.type==='income'?'💰':'💸'} R$${item.value}`;
+   history.appendChild(li);
+ });
+
+ const fixedTotal=Object.values(fixedBills).reduce((a,b)=>a+b,0);
+ const totalExpense=expense+fixedTotal;
+ const profit=income-totalExpense;
+ const dailyGoal=(totalExpense/30).toFixed(2);
+
+ incomeEl(income); expenseEl(totalExpense); profitEl(profit);
+ deliveriesEl(deliveries); goalEl(dailyGoal);
+ renderBills();
+ drawFinanceChart(data);
+ drawExpenseChart(categoryTotals);
+}
+
+function incomeEl(v){income.innerText=v.toFixed(2)}
+function expenseEl(v){expense.innerText=v.toFixed(2)}
+function profitEl(v){profit.innerText=v.toFixed(2)}
+function deliveriesEl(v){deliveries.innerText=v}
+function goalEl(v){goal.innerText=v}
+
+function drawFinanceChart(data){
+ const labels=[],profits=[]; let total=0;
+ data.forEach(item=>{
+  total += item.type==='income'?item.value:-item.value;
+  labels.push(item.date);
+  profits.push(total);
+ });
+ if(financeChart) financeChart.destroy();
+ financeChart=new Chart(financeChartEl,{type:'bar',data:{labels,datasets:[{data:profits,backgroundColor:'#22d3ee'}]}});
+}
+
+function drawExpenseChart(categories){
+ if(expenseChart) expenseChart.destroy();
+ expenseChart=new Chart(expenseChartEl,{type:'doughnut',data:{labels:Object.keys(categories),datasets:[{data:Object.values(categories)}]}});
+}
+
+const financeChartEl=document.getElementById('financeChart');
+const expenseChartEl=document.getElementById('expenseChart');
+render();
+</script></body>
+</html>
