@@ -1,0 +1,270 @@
+<!DOCTYPE html><html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MotoFinance Pro</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial,sans-serif;
+      background:#0b1020;
+      color:#fff;
+      padding:15px;
+      padding-bottom:90px;
+    }
+    h1,h2,h3{margin:0}
+    .header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:15px;
+    }
+    .period-selector{
+      display:flex;
+      gap:8px;
+      margin:15px 0;
+    }
+    .period-selector button{
+      flex:1;
+      padding:10px;
+      border:none;
+      border-radius:12px;
+      background:#1a2238;
+      color:#fff;
+      cursor:pointer;
+    }
+    .period-selector button.active{background:#22c55e}
+    .card{
+      background:#121a2f;
+      border-radius:18px;
+      padding:16px;
+      margin-bottom:14px;
+      box-shadow:0 0 12px rgba(0,0,0,.25);
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .gain{border:1px solid rgba(0,255,200,.2)}
+    .expense{border:1px solid rgba(255,0,80,.2)}
+    .profit{border:1px solid rgba(0,255,100,.2)}
+    .blue{color:#22d3ee}
+    .red{color:#ff4d6d}
+    .green{color:#22c55e}
+    .muted{color:#94a3b8;font-size:14px}
+    input,select{
+      width:100%;
+      padding:12px;
+      margin-top:8px;
+      border:none;
+      border-radius:10px;
+      background:#1a2238;
+      color:#fff;
+    }
+    button.primary{
+      width:100%;
+      padding:14px;
+      margin-top:10px;
+      border:none;
+      border-radius:12px;
+      background:#22c55e;
+      color:white;
+      font-weight:bold;
+      cursor:pointer;
+    }
+    ul{list-style:none;padding:0;margin:0}
+    li{
+      background:#1a2238;
+      margin-top:8px;
+      padding:12px;
+      border-radius:12px;
+    }
+    .bottom-nav{
+      position:fixed;
+      bottom:0;
+      left:0;
+      right:0;
+      background:#111827;
+      display:flex;
+      justify-content:space-around;
+      padding:12px;
+      border-top:1px solid #222;
+    }
+    .nav-item{color:#94a3b8;font-size:12px;text-align:center}
+    .nav-item.active{color:#22c55e}
+    canvas{margin-top:10px;background:#0f172a;border-radius:14px;padding:10px}
+  </style>
+</head>
+<body><div class="header">
+  <h1>📊 MotoFinance Pro</h1>
+  <div>📅 <span id="currentMonth"></span></div>
+</div><div class="period-selector">
+  <button onclick="setFilter('day')">Hoje</button>
+  <button class="active" onclick="setFilter('week')">7 dias</button>
+  <button onclick="setFilter('month')">30 dias</button>
+</div><div class="grid">
+  <div class="card gain">
+    <div class="muted">Ganhos</div>
+    <h2 class="blue">R$ <span id="income">0.00</span></h2>
+  </div>
+  <div class="card expense">
+    <div class="muted">Despesas</div>
+    <h2 class="red">R$ <span id="expense">0.00</span></h2>
+  </div>
+  <div class="card profit">
+    <div class="muted">Lucro Líquido</div>
+    <h2 class="green">R$ <span id="profit">0.00</span></h2>
+  </div>
+  <div class="card">
+    <div class="muted">Entregas / Meta</div>
+    <h2><span id="deliveries">0</span></h2>
+    <div class="muted">Meta diária: R$ <span id="goal">0</span></div>
+  </div>
+</div><div class="card">
+  <h3>➕ Novo Registro</h3>
+  <input id="value" type="number" placeholder="Valor R$">
+  <input id="hours" type="number" placeholder="Horas trabalhadas">
+  <input id="km" type="number" placeholder="Km rodados">
+  <input id="deliveriesInput" type="number" placeholder="Quantidade de entregas">
+  <select id="type">
+    <option value="income">💰 Ganho</option>
+    <option value="expense">💸 Gasto</option>
+  </select>
+  <select id="category">
+    <option value="gasolina">⛽ Gasolina</option>
+    <option value="manutencao">🔧 Manutenção</option>
+    <option value="comida">🍔 Alimentação</option>
+    <option value="casa">🏠 Casa</option>
+    <option value="cartao">💳 Cartão</option>
+    <option value="emprestimo">🏦 Empréstimo</option>
+    <option value="outros">📦 Outros</option>
+  </select>
+  <button class="primary" onclick="addEntry()">Salvar Registro</button>
+</div><div class="card">
+  <h3>📈 Evolução Financeira</h3>
+  <canvas id="financeChart"></canvas>
+</div><div class="card">
+  <h3>💸 Gastos por Categoria</h3>
+  <canvas id="expenseChart"></canvas>
+</div><div class="card">
+  <h3>📅 Histórico</h3>
+  <ul id="history"></ul>
+</div><div class="bottom-nav">
+  <div class="nav-item active">🏠<br>Início</div>
+  <div class="nav-item">💳<br>Contas</div>
+  <div class="nav-item">📊<br>Relatórios</div>
+  <div class="nav-item">⚙️<br>Config</div>
+</div><script>
+let entries = JSON.parse(localStorage.getItem('moto_finance')) || [];
+let filter = 'week';
+let financeChart, expenseChart;
+
+document.getElementById('currentMonth').innerText = new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+
+function save(){
+  localStorage.setItem('moto_finance', JSON.stringify(entries));
+}
+
+function addEntry(){
+  const value = Number(document.getElementById('value').value);
+  if(!value) return;
+
+  entries.push({
+    value,
+    hours:Number(document.getElementById('hours').value)||0,
+    km:Number(document.getElementById('km').value)||0,
+    deliveries:Number(document.getElementById('deliveriesInput').value)||0,
+    type:document.getElementById('type').value,
+    category:document.getElementById('category').value,
+    date:new Date().toISOString().split('T')[0]
+  });
+
+  save();
+  render();
+}
+
+function setFilter(period){
+  filter = period;
+  document.querySelectorAll('.period-selector button').forEach(btn=>btn.classList.remove('active'));
+  event.target.classList.add('active');
+  render();
+}
+
+function filteredEntries(){
+  if(filter==='day') return entries.slice(-1);
+  if(filter==='week') return entries.slice(-7);
+  if(filter==='month') return entries.slice(-30);
+  return entries;
+}
+
+function render(){
+  const data = filteredEntries();
+  let income=0, expense=0, deliveries=0;
+  let categoryTotals = {};
+  const history = document.getElementById('history');
+  history.innerHTML='';
+
+  data.forEach(item=>{
+    if(item.type==='income') income += item.value;
+    else {
+      expense += item.value;
+      categoryTotals[item.category] = (categoryTotals[item.category]||0)+item.value;
+    }
+
+    deliveries += item.deliveries;
+
+    const li = document.createElement('li');
+    li.innerHTML = `${item.date} | ${item.category} | ${item.type==='income'?'💰':'💸'} R$${item.value}`;
+    history.appendChild(li);
+  });
+
+  const profit = income - expense;
+  const dailyGoal = (expense/30).toFixed(2);
+
+  incomeEl(income);
+  expenseEl(expense);
+  profitEl(profit);
+  document.getElementById('deliveries').innerText = deliveries;
+  document.getElementById('goal').innerText = dailyGoal;
+
+  drawFinanceChart(data);
+  drawExpenseChart(categoryTotals);
+}
+
+function incomeEl(v){document.getElementById('income').innerText=v.toFixed(2)}
+function expenseEl(v){document.getElementById('expense').innerText=v.toFixed(2)}
+function profitEl(v){document.getElementById('profit').innerText=v.toFixed(2)}
+
+function drawFinanceChart(data){
+  const labels=[]; const profits=[]; let total=0;
+  data.forEach(item=>{
+    total += item.type==='income'?item.value:-item.value;
+    labels.push(item.date);
+    profits.push(total);
+  });
+
+  if(financeChart) financeChart.destroy();
+  financeChart = new Chart(document.getElementById('financeChart'), {
+    type:'bar',
+    data:{labels,datasets:[{label:'Lucro',data:profits,backgroundColor:'#22d3ee'}]},
+    options:{plugins:{legend:{display:false}}}
+  });
+}
+
+function drawExpenseChart(categories){
+  if(expenseChart) expenseChart.destroy();
+  expenseChart = new Chart(document.getElementById('expenseChart'), {
+    type:'doughnut',
+    data:{
+      labels:Object.keys(categories),
+      datasets:[{data:Object.values(categories)}]
+    }
+  });
+}
+
+render();
+</script></body>
+</html>
