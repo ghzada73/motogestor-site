@@ -1,0 +1,187 @@
+<!DOCTYPE html><html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MotoFinance Elite</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial;background:#0b1020;color:#fff;padding:15px;padding-bottom:100px}
+    .hidden{display:none}
+    .header,.row,.tabs{display:flex;justify-content:space-between;align-items:center}
+    .tabs{gap:8px;margin:15px 0}
+    .tab-btn,.period-btn{flex:1;padding:10px;border:none;border-radius:12px;background:#1a2238;color:#fff;cursor:pointer}
+    .active{background:#22c55e !important}
+    .card{background:#121a2f;border-radius:18px;padding:16px;margin-bottom:14px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .blue{color:#22d3ee}.red{color:#ff4d6d}.green{color:#22c55e}.muted{color:#94a3b8;font-size:13px}
+    input,select{width:100%;padding:12px;margin-top:8px;border:none;border-radius:10px;background:#1a2238;color:#fff}
+    button.primary{width:100%;padding:14px;margin-top:10px;border:none;border-radius:12px;background:#22c55e;color:white;font-weight:bold;cursor:pointer}
+    ul{list-style:none;padding:0;margin:0}
+    li{background:#1a2238;margin-top:8px;padding:12px;border-radius:12px}
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#111827;display:flex;justify-content:space-around;padding:12px}
+    .nav-item{color:#94a3b8;font-size:12px;text-align:center;cursor:pointer}.nav-item.active{color:#22c55e}
+    canvas{margin-top:10px;background:#0f172a;border-radius:14px;padding:10px}
+    .edit-btn{background:none;border:none;color:#22d3ee;cursor:pointer}
+    .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px}
+    .day{padding:10px;background:#1a2238;border-radius:10px;text-align:center}
+    .work{border:1px solid #22c55e}
+    .off{border:1px solid #ff4d6d}
+  </style>
+</head>
+<body><div class="header">
+  <h1>📊 MotoFinance Elite</h1>
+  <div>📅 <span id="currentMonth"></span></div>
+</div><div class="tabs">
+  <button class="tab-btn active" onclick="showTab('dashboard', event)">🏠 Início</button>
+  <button class="tab-btn" onclick="showTab('cards', event)">💳 Cartões</button>
+  <button class="tab-btn" onclick="showTab('journey', event)">📅 Jornada</button>
+  <button class="tab-btn" onclick="showTab('settings', event)">⚙️ Config</button>
+</div><div id="dashboard">
+  <div class="grid">
+    <div class="card"><div class="muted">Ganhos</div><h2 class="blue">R$ <span id="income">0</span></h2></div>
+    <div class="card"><div class="muted">Despesas</div><h2 class="red">R$ <span id="expense">0</span></h2></div>
+    <div class="card"><div class="muted">Lucro</div><h2 class="green">R$ <span id="profit">0</span></h2></div>
+    <div class="card"><div class="muted">Meta diária</div><h2>R$ <span id="goal">0</span></h2></div>
+  </div>  <div class="card">
+    <h3>📈 Evolução Financeira</h3>
+    <canvas id="financeChart"></canvas>
+  </div>  <div class="card">
+    <h3>💸 Gastos por Categoria</h3>
+    <canvas id="expenseChart"></canvas>
+  </div>
+</div><div id="cards" class="hidden">
+  <div class="card">
+    <h3>💳 Cartões e Parcelas</h3>
+    <input id="cardName" placeholder="Nome do cartão">
+    <input id="cardLimit" type="number" placeholder="Limite">
+    <input id="cardDebt" type="number" placeholder="Fatura atual">
+    <button class="primary" onclick="addCard()">Salvar Cartão</button>
+    <ul id="cardsList"></ul>
+  </div>
+</div><div id="journey" class="hidden">
+  <div class="card">
+    <h3>📅 Calendário Premium</h3>
+    <div class="calendar" id="calendar"></div>
+    <button class="primary" onclick="saveWorkDay()">Salvar Hoje</button>
+  </div>  <div class="card">
+    <h3>🏍 Jornada Resumida</h3>
+    <div>Dias trabalhados: <span id="workedDays">0</span></div>
+    <div>Folgas: <span id="offDays">0</span></div>
+  </div>
+</div><div id="settings" class="hidden">
+  <div class="card">
+    <h3>⚙️ Configurações Financeiras</h3>
+    <div id="fixedBills"></div>
+  </div>
+</div><script>
+let entries = JSON.parse(localStorage.getItem('moto_finance')) || [];
+let fixedBills = JSON.parse(localStorage.getItem('fixed_bills')) || {agua:0,energia:0,internet:0,aluguel:0,mercado:0};
+let cards = JSON.parse(localStorage.getItem('cards')) || [];
+let workDays = JSON.parse(localStorage.getItem('work_days')) || [];
+let financeChart, expenseChart;
+
+document.getElementById('currentMonth').innerText = new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+
+function saveAll(){
+ localStorage.setItem('moto_finance',JSON.stringify(entries));
+ localStorage.setItem('fixed_bills',JSON.stringify(fixedBills));
+ localStorage.setItem('cards',JSON.stringify(cards));
+ localStorage.setItem('work_days',JSON.stringify(workDays));
+}
+
+function showTab(tab,event){
+ document.querySelectorAll('[id^="dashboard"],#cards,#journey,#settings').forEach(el=>el.classList.add('hidden'));
+ document.getElementById(tab).classList.remove('hidden');
+ document.querySelectorAll('.tab-btn').forEach(btn=>btn.classList.remove('active'));
+ event.target.classList.add('active');
+}
+
+function addCard(){
+ cards.push({name:cardName.value,limit:Number(cardLimit.value),debt:Number(cardDebt.value)});
+ saveAll(); renderCards();
+}
+
+function renderCards(){
+ cardsList.innerHTML='';
+ cards.forEach((c,i)=>{
+  let li=document.createElement('li');
+  li.innerHTML=`${c.name} | Limite: R$${c.limit} | Fatura: R$${c.debt}`;
+  cardsList.appendChild(li);
+ });
+}
+
+function saveWorkDay(){
+ const today=new Date().getDate();
+ workDays.push({day:today,work:true});
+ saveAll(); renderCalendar();
+}
+
+function renderCalendar(){
+ calendar.innerHTML='';
+ let worked=0, off=0;
+ for(let i=1;i<=30;i++){
+   const dayData = workDays.find(d=>d.day===i);
+   let div=document.createElement('div');
+   div.className='day ' + (dayData?'work':'off');
+   div.innerText=i;
+   calendar.appendChild(div);
+   if(dayData) worked++; else off++;
+ }
+ workedDays.innerText=worked;
+ offDays.innerText=off;
+}
+
+function renderBills(){
+ fixedBills.innerHTML='';
+ for(let bill in fixedBills){
+  let div=document.createElement('div');
+  div.className='row';
+  div.innerHTML=`<span>${bill}: R$${fixedBills[bill]}</span><button class='edit-btn' onclick="editBill('${bill}')">✏️</button>`;
+  document.getElementById('fixedBills').appendChild(div);
+ }
+}
+
+function editBill(name){
+ let v=prompt('Novo valor:', fixedBills[name]);
+ if(v!==null){fixedBills[name]=Number(v)||0; saveAll(); renderBills(); render();}
+}
+
+function render(){
+ let income=entries.filter(e=>e.type==='income').reduce((a,b)=>a+b.value,0);
+ let expense=entries.filter(e=>e.type==='expense').reduce((a,b)=>a+b.value,0);
+ let fixed=Object.values(fixedBills).reduce((a,b)=>a+b,0);
+ let cardDebt=cards.reduce((a,b)=>a+b.debt,0);
+ expense += fixed + cardDebt;
+ let profit=income-expense;
+ let goal=(expense/30).toFixed(2);
+
+ incomeEl(income); expenseEl(expense); profitEl(profit); goalEl(goal);
+ drawCharts(); renderBills(); renderCards(); renderCalendar();
+}
+
+function incomeEl(v){income.innerText=v.toFixed(2)}
+function expenseEl(v){expense.innerText=v.toFixed(2)}
+function profitEl(v){profit.innerText=v.toFixed(2)}
+function goalEl(v){goal.innerText=v}
+
+function drawCharts(){
+ let labels=entries.map(e=>e.date||'Dia');
+ let cumulative=[]; let total=0;
+ let categories={};
+ entries.forEach(e=>{
+  total += e.type==='income'?e.value:-e.value;
+  cumulative.push(total);
+  if(e.type==='expense') categories[e.category]=(categories[e.category]||0)+e.value;
+ });
+
+ if(financeChart) financeChart.destroy();
+ financeChart=new Chart(document.getElementById('financeChart'),{type:'bar',data:{labels,datasets:[{data:cumulative,backgroundColor:'#22d3ee'}]}});
+
+ if(expenseChart) expenseChart.destroy();
+ expenseChart=new Chart(document.getElementById('expenseChart'),{type:'doughnut',data:{labels:Object.keys(categories),datasets:[{data:Object.values(categories)}]}});
+}
+
+render();
+</script></body>
+</html>
