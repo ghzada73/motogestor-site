@@ -1,0 +1,682 @@
+const CHAVE_DADOS = "motoboy_planilha_v2";
+const CHAVE_DADOS_ANTIGA = "motoboy_planilha_v1";
+
+const CATEGORIAS_POR_TIPO = {
+  ganho: ["Corrida", "Entrega extra", "Gorjeta", "Bônus", "Frete", "Outros"],
+  gasto: ["Combustível", "Alimentação", "Pedágio", "Aplicativo", "Estacionamento", "Outros"]
+};
+
+const estado = {
+  lancamentos: [],
+  manutencoes: [],
+  configuracoes: {
+    nomeNegocio: "Painel do Motoboy",
+    metaGanhos: 0,
+    metaLucro: 0,
+    metaKm: 0,
+    custoFixo: 0
+  }
+};
+
+const elementos = {
+  formLancamento: document.getElementById("formLancamento"),
+  formManutencao: document.getElementById("formManutencao"),
+  formConfiguracoes: document.getElementById("formConfiguracoes"),
+  filtroMes: document.getElementById("filtroMes"),
+  tipoLancamento: document.getElementById("tipoLancamento"),
+  categoriaLancamento: document.getElementById("categoriaLancamento"),
+  importarArquivo: document.getElementById("importarArquivo"),
+  exportarDados: document.getElementById("exportarDados"),
+  limparTudo: document.getElementById("limparTudo"),
+  tituloPainel: document.getElementById("tituloPainel"),
+  periodoAtual: document.getElementById("periodoAtual"),
+  statusResumo: document.getElementById("statusResumo"),
+  lucroLiquidoMes: document.getElementById("lucroLiquidoMes"),
+  ganhoBrutoMes: document.getElementById("ganhoBrutoMes"),
+  gastoOperacionalMes: document.getElementById("gastoOperacionalMes"),
+  manutencaoMes: document.getElementById("manutencaoMes"),
+  kmRodadosMes: document.getElementById("kmRodadosMes"),
+  corridasMes: document.getElementById("corridasMes"),
+  ganhoPorKmMes: document.getElementById("ganhoPorKmMes"),
+  custoPorKmMes: document.getElementById("custoPorKmMes"),
+  valorRecebido: document.getElementById("valorRecebido"),
+  valorGasto: document.getElementById("valorGasto"),
+  valorManutencao: document.getElementById("valorManutencao"),
+  valorCustoFixo: document.getElementById("valorCustoFixo"),
+  valorLucro: document.getElementById("valorLucro"),
+  valorTicketMedio: document.getElementById("valorTicketMedio"),
+  valorMediaDia: document.getElementById("valorMediaDia"),
+  valorDiasTrabalhados: document.getElementById("valorDiasTrabalhados"),
+  textoMetaGanhos: document.getElementById("textoMetaGanhos"),
+  textoMetaLucro: document.getElementById("textoMetaLucro"),
+  textoMetaKm: document.getElementById("textoMetaKm"),
+  barraMetaGanhos: document.getElementById("barraMetaGanhos"),
+  barraMetaLucro: document.getElementById("barraMetaLucro"),
+  barraMetaKm: document.getElementById("barraMetaKm"),
+  fechamentoPeriodo: document.getElementById("fechamentoPeriodo"),
+  contadorDias: document.getElementById("contadorDias"),
+  contadorLancamentos: document.getElementById("contadorLancamentos"),
+  contadorManutencao: document.getElementById("contadorManutencao"),
+  tabelaResumoDiario: document.getElementById("tabelaResumoDiario"),
+  tabelaLancamentos: document.getElementById("tabelaLancamentos"),
+  tabelaManutencao: document.getElementById("tabelaManutencao"),
+  resumoCategorias: document.getElementById("resumoCategorias"),
+  resumoOrigens: document.getElementById("resumoOrigens"),
+  listaAlertas: document.getElementById("listaAlertas"),
+  estadoVazio: document.getElementById("estadoVazio")
+};
+
+function formatarMoeda(valor) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  }).format(Number(valor) || 0);
+}
+
+function formatarNumero(valor, casas = 0) {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: casas,
+    maximumFractionDigits: casas
+  }).format(Number(valor) || 0);
+}
+
+function formatarKm(valor) {
+  return `${formatarNumero(valor, valor % 1 ? 1 : 0)} km`;
+}
+
+function formatarData(valor) {
+  if (!valor) return "";
+  const data = new Date(`${valor}T00:00:00`);
+  return data.toLocaleDateString("pt-BR");
+}
+
+function dataHoje() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function mesAtual() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function gerarId() {
+  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function somar(lista, campo) {
+  return lista.reduce((acc, item) => acc + (Number(item[campo]) || 0), 0);
+}
+
+function normalizarNumero(valor) {
+  return Number(valor) || 0;
+}
+
+function normalizarLancamento(item) {
+  return {
+    id: item.id || gerarId(),
+    data: item.data || dataHoje(),
+    tipo: item.tipo === "gasto" ? "gasto" : "ganho",
+    categoria: item.categoria || (item.tipo === "gasto" ? "Outros" : "Corrida"),
+    origem: item.origem || "",
+    valor: normalizarNumero(item.valor),
+    km: normalizarNumero(item.km),
+    corridas: normalizarNumero(item.corridas),
+    turno: item.turno || "",
+    descricao: item.descricao || "",
+    criadoEm: item.criadoEm || Date.now()
+  };
+}
+
+function normalizarManutencao(item) {
+  return {
+    id: item.id || gerarId(),
+    data: item.data || dataHoje(),
+    servico: item.servico || "Serviço",
+    custo: normalizarNumero(item.custo),
+    km: normalizarNumero(item.km),
+    proximaTrocaKm: normalizarNumero(item.proximaTrocaKm),
+    oficina: item.oficina || "",
+    observacao: item.observacao || "",
+    criadoEm: item.criadoEm || Date.now()
+  };
+}
+
+function normalizarConfiguracoes(config) {
+  return {
+    nomeNegocio: config?.nomeNegocio?.trim() || "Painel do Motoboy",
+    metaGanhos: normalizarNumero(config?.metaGanhos),
+    metaLucro: normalizarNumero(config?.metaLucro),
+    metaKm: normalizarNumero(config?.metaKm),
+    custoFixo: normalizarNumero(config?.custoFixo)
+  };
+}
+
+function aplicarEstado(dados) {
+  estado.lancamentos = Array.isArray(dados?.lancamentos) ? dados.lancamentos.map(normalizarLancamento) : [];
+  estado.manutencoes = Array.isArray(dados?.manutencoes) ? dados.manutencoes.map(normalizarManutencao) : [];
+  estado.configuracoes = normalizarConfiguracoes(dados?.configuracoes || {});
+}
+
+function salvarDados() {
+  localStorage.setItem(CHAVE_DADOS, JSON.stringify(estado));
+}
+
+function carregarDados() {
+  const salvoV2 = localStorage.getItem(CHAVE_DADOS);
+  const salvoV1 = localStorage.getItem(CHAVE_DADOS_ANTIGA);
+
+  try {
+    if (salvoV2) {
+      aplicarEstado(JSON.parse(salvoV2));
+      return;
+    }
+
+    if (salvoV1) {
+      aplicarEstado(JSON.parse(salvoV1));
+      salvarDados();
+    }
+  } catch (erro) {
+    console.error("Erro ao carregar dados.", erro);
+  }
+}
+
+function obterMesSelecionado() {
+  return elementos.filtroMes.value || mesAtual();
+}
+
+function filtrarPorMes(lista, campo = "data") {
+  const mes = obterMesSelecionado();
+  return lista.filter((item) => String(item[campo] || "").slice(0, 7) === mes);
+}
+
+function obterResumoMes() {
+  const lancamentosMes = filtrarPorMes(estado.lancamentos);
+  const manutencoesMes = filtrarPorMes(estado.manutencoes);
+  const ganhos = lancamentosMes.filter((item) => item.tipo === "ganho");
+  const gastos = lancamentosMes.filter((item) => item.tipo === "gasto");
+
+  const totalGanhos = somar(ganhos, "valor");
+  const totalGastosOperacionais = somar(gastos, "valor");
+  const totalManutencao = somar(manutencoesMes, "custo");
+  const custoFixo = normalizarNumero(estado.configuracoes.custoFixo);
+  const gastoTotal = totalGastosOperacionais + totalManutencao + custoFixo;
+  const lucroLiquido = totalGanhos - gastoTotal;
+  const kmRodados = somar(lancamentosMes, "km");
+  const corridas = somar(lancamentosMes, "corridas");
+  const ganhoPorKm = kmRodados > 0 ? totalGanhos / kmRodados : 0;
+  const custoPorKm = kmRodados > 0 ? gastoTotal / kmRodados : 0;
+  const ticketMedio = corridas > 0 ? totalGanhos / corridas : 0;
+
+  const dias = new Set([
+    ...lancamentosMes.map((item) => item.data),
+    ...manutencoesMes.map((item) => item.data)
+  ].filter(Boolean));
+
+  const mediaDia = dias.size > 0 ? lucroLiquido / dias.size : 0;
+
+  return {
+    mes: obterMesSelecionado(),
+    lancamentosMes,
+    manutencoesMes,
+    totalGanhos,
+    totalGastosOperacionais,
+    totalManutencao,
+    custoFixo,
+    gastoTotal,
+    lucroLiquido,
+    kmRodados,
+    corridas,
+    ganhoPorKm,
+    custoPorKm,
+    ticketMedio,
+    diasTrabalhados: dias.size
+  };
+}
+
+function formatarMesAno(chaveMes) {
+  if (!chaveMes) return "-";
+  const [ano, mes] = chaveMes.split("-");
+  const data = new Date(Number(ano), Number(mes) - 1, 1);
+  return data.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+}
+
+function atualizarCategorias() {
+  const tipo = elementos.tipoLancamento.value;
+  const categorias = CATEGORIAS_POR_TIPO[tipo] || ["Outros"];
+  const categoriaAtual = elementos.categoriaLancamento.value;
+
+  elementos.categoriaLancamento.innerHTML = categorias
+    .map((categoria) => `<option value="${categoria}">${categoria}</option>`)
+    .join("");
+
+  if (categorias.includes(categoriaAtual)) {
+    elementos.categoriaLancamento.value = categoriaAtual;
+  }
+}
+
+function preencherFormularioConfiguracoes() {
+  const { configuracoes } = estado;
+  elementos.formConfiguracoes.elements.nomeNegocio.value = configuracoes.nomeNegocio;
+  elementos.formConfiguracoes.elements.metaGanhos.value = configuracoes.metaGanhos || "";
+  elementos.formConfiguracoes.elements.metaLucro.value = configuracoes.metaLucro || "";
+  elementos.formConfiguracoes.elements.metaKm.value = configuracoes.metaKm || "";
+  elementos.formConfiguracoes.elements.custoFixo.value = configuracoes.custoFixo || "";
+}
+
+function definirProgresso(barra, texto, atual, meta, formatador = formatarMoeda) {
+  if (!meta) {
+    barra.style.width = "0%";
+    texto.textContent = "Sem meta definida";
+    return;
+  }
+
+  const percentual = Math.max(0, Math.min((atual / meta) * 100, 100));
+  barra.style.width = `${percentual}%`;
+  texto.textContent = `${formatador(atual)} de ${formatador(meta)} (${formatarNumero(percentual, 0)}%)`;
+}
+
+function criarLinhaVazia(colspan) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td colspan="${colspan}" class="empty-state">Nenhum dado registrado neste período.</td>`;
+  return tr;
+}
+
+function renderizarCards(resumo) {
+  elementos.tituloPainel.textContent = estado.configuracoes.nomeNegocio || "Painel do Motoboy";
+  elementos.periodoAtual.textContent = formatarMesAno(resumo.mes);
+  elementos.fechamentoPeriodo.textContent = formatarMesAno(resumo.mes);
+
+  const semMovimento = resumo.totalGanhos === 0 && resumo.gastoTotal === 0 && resumo.kmRodados === 0;
+  elementos.statusResumo.textContent = semMovimento ? "Sem movimento" : resumo.lucroLiquido >= 0 ? "Mês positivo" : "Atenção ao lucro";
+
+  elementos.lucroLiquidoMes.textContent = formatarMoeda(resumo.lucroLiquido);
+  elementos.ganhoBrutoMes.textContent = formatarMoeda(resumo.totalGanhos);
+  elementos.gastoOperacionalMes.textContent = formatarMoeda(resumo.totalGastosOperacionais);
+  elementos.manutencaoMes.textContent = formatarMoeda(resumo.totalManutencao);
+  elementos.kmRodadosMes.textContent = formatarKm(resumo.kmRodados);
+  elementos.corridasMes.textContent = formatarNumero(resumo.corridas, 0);
+  elementos.ganhoPorKmMes.textContent = formatarMoeda(resumo.ganhoPorKm);
+  elementos.custoPorKmMes.textContent = formatarMoeda(resumo.custoPorKm);
+}
+
+function renderizarFechamento(resumo) {
+  elementos.valorRecebido.textContent = formatarMoeda(resumo.totalGanhos);
+  elementos.valorGasto.textContent = formatarMoeda(resumo.totalGastosOperacionais);
+  elementos.valorManutencao.textContent = formatarMoeda(resumo.totalManutencao);
+  elementos.valorCustoFixo.textContent = formatarMoeda(resumo.custoFixo);
+  elementos.valorLucro.textContent = formatarMoeda(resumo.lucroLiquido);
+  elementos.valorTicketMedio.textContent = formatarMoeda(resumo.ticketMedio);
+  elementos.valorMediaDia.textContent = formatarMoeda(resumo.mediaDia);
+  elementos.valorDiasTrabalhados.textContent = formatarNumero(resumo.diasTrabalhados, 0);
+
+  definirProgresso(
+    elementos.barraMetaGanhos,
+    elementos.textoMetaGanhos,
+    resumo.totalGanhos,
+    estado.configuracoes.metaGanhos,
+    formatarMoeda
+  );
+  definirProgresso(
+    elementos.barraMetaLucro,
+    elementos.textoMetaLucro,
+    resumo.lucroLiquido,
+    estado.configuracoes.metaLucro,
+    formatarMoeda
+  );
+  definirProgresso(
+    elementos.barraMetaKm,
+    elementos.textoMetaKm,
+    resumo.kmRodados,
+    estado.configuracoes.metaKm,
+    (valor) => `${formatarNumero(valor, 0)} km`
+  );
+}
+
+function renderizarTabelaResumoDiario(resumo) {
+  elementos.tabelaResumoDiario.innerHTML = "";
+
+  const mapa = new Map();
+
+  resumo.lancamentosMes.forEach((item) => {
+    const atual = mapa.get(item.data) || {
+      data: item.data,
+      ganhos: 0,
+      gastos: 0,
+      manutencao: 0,
+      km: 0,
+      corridas: 0
+    };
+
+    if (item.tipo === "ganho") atual.ganhos += item.valor;
+    if (item.tipo === "gasto") atual.gastos += item.valor;
+    atual.km += item.km || 0;
+    atual.corridas += item.corridas || 0;
+    mapa.set(item.data, atual);
+  });
+
+  resumo.manutencoesMes.forEach((item) => {
+    const atual = mapa.get(item.data) || {
+      data: item.data,
+      ganhos: 0,
+      gastos: 0,
+      manutencao: 0,
+      km: 0,
+      corridas: 0
+    };
+    atual.manutencao += item.custo;
+    mapa.set(item.data, atual);
+  });
+
+  const linhas = [...mapa.values()].sort((a, b) => b.data.localeCompare(a.data));
+  elementos.contadorDias.textContent = `${linhas.length} dias registrados`;
+
+  if (linhas.length === 0) {
+    elementos.tabelaResumoDiario.appendChild(criarLinhaVazia(7));
+    return;
+  }
+
+  linhas.forEach((linha) => {
+    const tr = document.createElement("tr");
+    const lucro = linha.ganhos - linha.gastos - linha.manutencao;
+    tr.innerHTML = `
+      <td>${formatarData(linha.data)}</td>
+      <td>${formatarMoeda(linha.ganhos)}</td>
+      <td>${formatarMoeda(linha.gastos)}</td>
+      <td>${formatarMoeda(linha.manutencao)}</td>
+      <td>${formatarMoeda(lucro)}</td>
+      <td>${formatarNumero(linha.km, linha.km % 1 ? 1 : 0)}</td>
+      <td>${formatarNumero(linha.corridas, 0)}</td>
+    `;
+    elementos.tabelaResumoDiario.appendChild(tr);
+  });
+}
+
+function renderizarResumoEmCards(container, lista, formatador = formatarMoeda) {
+  container.innerHTML = "";
+
+  if (lista.length === 0) {
+    container.appendChild(elementos.estadoVazio.content.cloneNode(true));
+    return;
+  }
+
+  const maior = lista[0][1] || 1;
+  lista.forEach(([nome, valor]) => {
+    const percentual = Math.max(6, Math.round((valor / maior) * 100));
+    const card = document.createElement("article");
+    card.className = "summary-item";
+    card.innerHTML = `
+      <span>${nome}</span>
+      <strong>${formatador(valor)}</strong>
+      <div class="mini-bar"><div class="mini-bar-fill" style="width:${percentual}%"></div></div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderizarResumoCategorias(resumo) {
+  const categorias = new Map();
+  resumo.lancamentosMes
+    .filter((item) => item.tipo === "gasto")
+    .forEach((item) => {
+      categorias.set(item.categoria, (categorias.get(item.categoria) || 0) + item.valor);
+    });
+
+  const ordenados = [...categorias.entries()].sort((a, b) => b[1] - a[1]);
+  renderizarResumoEmCards(elementos.resumoCategorias, ordenados);
+}
+
+function renderizarResumoOrigens(resumo) {
+  const origens = new Map();
+  resumo.lancamentosMes
+    .filter((item) => item.tipo === "ganho")
+    .forEach((item) => {
+      const chave = item.origem || item.categoria || "Sem origem";
+      origens.set(chave, (origens.get(chave) || 0) + item.valor);
+    });
+
+  const ordenados = [...origens.entries()].sort((a, b) => b[1] - a[1]);
+  renderizarResumoEmCards(elementos.resumoOrigens, ordenados);
+}
+
+function obterKmAtualMes() {
+  return filtrarPorMes(estado.lancamentos).reduce((maior, item) => Math.max(maior, item.km || 0), 0);
+}
+
+function renderizarAlertas() {
+  elementos.listaAlertas.innerHTML = "";
+
+  const kmAtual = obterKmAtualMes();
+  const alertas = estado.manutencoes
+    .filter((item) => item.proximaTrocaKm > 0)
+    .sort((a, b) => a.proximaTrocaKm - b.proximaTrocaKm)
+    .slice(0, 4);
+
+  if (alertas.length === 0) {
+    elementos.listaAlertas.appendChild(elementos.estadoVazio.content.cloneNode(true));
+    return;
+  }
+
+  alertas.forEach((item) => {
+    const faltam = item.proximaTrocaKm - kmAtual;
+    const box = document.createElement("div");
+    box.className = "notice-item";
+    box.innerHTML = `
+      <strong>${item.servico}</strong>
+      <p>Próxima troca em ${formatarNumero(item.proximaTrocaKm, 0)} km.</p>
+      <p>${faltam <= 0 ? "Já passou da quilometragem planejada." : `Faltam cerca de ${formatarNumero(faltam, 0)} km.`}</p>
+    `;
+    elementos.listaAlertas.appendChild(box);
+  });
+}
+
+function renderizarLancamentos(resumo) {
+  elementos.tabelaLancamentos.innerHTML = "";
+  const ordenados = [...resumo.lancamentosMes].sort((a, b) => b.data.localeCompare(a.data));
+  elementos.contadorLancamentos.textContent = `${ordenados.length} registros`;
+
+  if (ordenados.length === 0) {
+    elementos.tabelaLancamentos.appendChild(criarLinhaVazia(9));
+    return;
+  }
+
+  ordenados.forEach((item) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${formatarData(item.data)}</td>
+      <td><span class="tipo ${item.tipo}">${item.tipo}</span></td>
+      <td>${item.categoria}</td>
+      <td>${item.origem || "-"}</td>
+      <td>${item.km ? formatarNumero(item.km, item.km % 1 ? 1 : 0) : "-"}</td>
+      <td>${item.corridas ? formatarNumero(item.corridas, 0) : "-"}</td>
+      <td>${formatarMoeda(item.valor)}</td>
+      <td>${item.descricao || item.turno || "-"}</td>
+      <td><button class="mini-button" data-remove-lancamento="${item.id}">Excluir</button></td>
+    `;
+    elementos.tabelaLancamentos.appendChild(tr);
+  });
+}
+
+function renderizarManutencoes(resumo) {
+  elementos.tabelaManutencao.innerHTML = "";
+  const ordenados = [...resumo.manutencoesMes].sort((a, b) => b.data.localeCompare(a.data));
+  elementos.contadorManutencao.textContent = `${ordenados.length} registros`;
+
+  if (ordenados.length === 0) {
+    elementos.tabelaManutencao.appendChild(criarLinhaVazia(7));
+    return;
+  }
+
+  ordenados.forEach((item) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${formatarData(item.data)}</td>
+      <td>${item.servico}</td>
+      <td>${item.km ? formatarNumero(item.km, 0) : "-"}</td>
+      <td>${item.proximaTrocaKm ? formatarNumero(item.proximaTrocaKm, 0) : "-"}</td>
+      <td>${item.oficina || "-"}</td>
+      <td>${formatarMoeda(item.custo)}</td>
+      <td><button class="mini-button" data-remove-manutencao="${item.id}">Excluir</button></td>
+    `;
+    elementos.tabelaManutencao.appendChild(tr);
+  });
+}
+
+function renderizarTudo() {
+  const resumo = obterResumoMes();
+  renderizarCards(resumo);
+  renderizarFechamento(resumo);
+  renderizarTabelaResumoDiario(resumo);
+  renderizarResumoCategorias(resumo);
+  renderizarResumoOrigens(resumo);
+  renderizarAlertas();
+  renderizarLancamentos(resumo);
+  renderizarManutencoes(resumo);
+  preencherFormularioConfiguracoes();
+}
+
+function removerLancamento(id) {
+  estado.lancamentos = estado.lancamentos.filter((item) => item.id !== id);
+  salvarDados();
+  renderizarTudo();
+}
+
+function removerManutencao(id) {
+  estado.manutencoes = estado.manutencoes.filter((item) => item.id !== id);
+  salvarDados();
+  renderizarTudo();
+}
+
+function importarDados(arquivo) {
+  if (!arquivo) return;
+
+  const leitor = new FileReader();
+  leitor.onload = () => {
+    try {
+      const conteudo = JSON.parse(String(leitor.result));
+      aplicarEstado(conteudo);
+      salvarDados();
+      renderizarTudo();
+      alert("Dados importados com sucesso.");
+    } catch (erro) {
+      alert("Não foi possível importar este arquivo.");
+    }
+  };
+  leitor.readAsText(arquivo);
+}
+
+function configurarEventos() {
+  elementos.tipoLancamento.addEventListener("change", atualizarCategorias);
+  elementos.filtroMes.addEventListener("change", renderizarTudo);
+
+  elementos.formLancamento.addEventListener("submit", (evento) => {
+    evento.preventDefault();
+    const dados = new FormData(evento.currentTarget);
+
+    estado.lancamentos.push(normalizarLancamento({
+      id: gerarId(),
+      data: dados.get("data"),
+      tipo: dados.get("tipo"),
+      categoria: dados.get("categoria"),
+      origem: dados.get("origem")?.toString().trim(),
+      valor: dados.get("valor"),
+      km: dados.get("km"),
+      corridas: dados.get("corridas"),
+      turno: dados.get("turno"),
+      descricao: dados.get("descricao")?.toString().trim(),
+      criadoEm: Date.now()
+    }));
+
+    salvarDados();
+    evento.currentTarget.reset();
+    evento.currentTarget.elements.data.value = dataHoje();
+    evento.currentTarget.elements.tipo.value = "ganho";
+    atualizarCategorias();
+    renderizarTudo();
+  });
+
+  elementos.formManutencao.addEventListener("submit", (evento) => {
+    evento.preventDefault();
+    const dados = new FormData(evento.currentTarget);
+
+    estado.manutencoes.push(normalizarManutencao({
+      id: gerarId(),
+      data: dados.get("data"),
+      servico: dados.get("servico")?.toString().trim(),
+      custo: dados.get("custo"),
+      km: dados.get("km"),
+      proximaTrocaKm: dados.get("proximaTrocaKm"),
+      oficina: dados.get("oficina")?.toString().trim(),
+      observacao: dados.get("observacao")?.toString().trim(),
+      criadoEm: Date.now()
+    }));
+
+    salvarDados();
+    evento.currentTarget.reset();
+    evento.currentTarget.elements.data.value = dataHoje();
+    renderizarTudo();
+  });
+
+  elementos.formConfiguracoes.addEventListener("submit", (evento) => {
+    evento.preventDefault();
+    const dados = new FormData(evento.currentTarget);
+    estado.configuracoes = normalizarConfiguracoes({
+      nomeNegocio: dados.get("nomeNegocio"),
+      metaGanhos: dados.get("metaGanhos"),
+      metaLucro: dados.get("metaLucro"),
+      metaKm: dados.get("metaKm"),
+      custoFixo: dados.get("custoFixo")
+    });
+    salvarDados();
+    renderizarTudo();
+  });
+
+  document.addEventListener("click", (evento) => {
+    const botao = evento.target.closest("button");
+    if (!botao) return;
+
+    if (botao.dataset.removeLancamento) removerLancamento(botao.dataset.removeLancamento);
+    if (botao.dataset.removeManutencao) removerManutencao(botao.dataset.removeManutencao);
+  });
+
+  elementos.exportarDados.addEventListener("click", () => {
+    const pacote = {
+      versao: 2,
+      exportadoEm: new Date().toISOString(),
+      ...estado
+    };
+
+    const blob = new Blob([JSON.stringify(pacote, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `controle-motoboy-v2-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+
+  elementos.importarArquivo.addEventListener("change", (evento) => {
+    importarDados(evento.target.files?.[0]);
+    evento.target.value = "";
+  });
+
+  elementos.limparTudo.addEventListener("click", () => {
+    const confirmar = window.confirm("Tem certeza? Isso vai apagar todos os lançamentos, manutenções e metas.");
+    if (!confirmar) return;
+
+    aplicarEstado({});
+    salvarDados();
+    atualizarCategorias();
+    renderizarTudo();
+  });
+}
+
+function iniciar() {
+  carregarDados();
+  elementos.filtroMes.value = mesAtual();
+  elementos.formLancamento.elements.data.value = dataHoje();
+  elementos.formManutencao.elements.data.value = dataHoje();
+  atualizarCategorias();
+  configurarEventos();
+  renderizarTudo();
+}
+
+iniciar();
